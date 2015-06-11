@@ -28,6 +28,8 @@ class filefilter:
     def doit(self):
         infile = open(self.thefile, 'r')
         outfile = open("_new.".join(infile.name.split(".")),"w")
+        #filename = input("Enter a file name: ")
+        #outfile = open(filename,"w")
         for line in infile:
             outfile.write(self.thefunc(line, self.inargs[0],self.inargs[1]))
         outfile.close()
@@ -38,4 +40,7 @@ class filefilter:
         print(args)
         return instr.replace(args[1],args[2])
 
-
+    def makeafile(self,fname):
+        a = open(fname,"w")
+        a.write(fname)
+        a.close()
