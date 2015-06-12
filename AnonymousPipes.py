@@ -1,6 +1,13 @@
 __author__ = 'tkessler'
 
+import sys
 import os
-a = os.fdopen()
-a.readline()
+
+print(sys.stdin.fileno())
+print(sys.stdout.fileno)
+
+os.dup2()
+
+
+
 

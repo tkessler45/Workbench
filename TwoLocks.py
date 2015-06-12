@@ -2,8 +2,8 @@ __author__ = 'tkessler'
 
 import threading, time
 
-#create batons
-firstlock = threading.Lock()
+#create batons (locks)
+thebaton = threading.Lock()
 secondlock = threading.Lock()
 
 """
@@ -15,7 +15,7 @@ will block bfunc provided
 
 def afunc(var):
     #time.sleep(1)
-    with firstlock: #Ask for baton. Only run following code if available. Wait if not available.
+    with thebaton: #Ask for baton. Only run following code if available. Wait if not available.
         for i in range(5):
             time.sleep(.0002)
             time.sleep(1)
@@ -24,7 +24,7 @@ def afunc(var):
 def bfunc(var):
     #time.sleep(1)
     #with secondlock:
-    with firstlock: #attempt to hold the baton, if available
+    with thebaton: #attempt to hold the baton, if available
         print(var)
 
 a=threading.Thread(target=afunc, args=(5,))

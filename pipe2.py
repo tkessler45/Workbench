@@ -23,7 +23,7 @@ thethread.setDaemon(True)
 def parent():
     global breakflag
     (pipein, pipeout) = os.pipe()
-    if os.fork() == 0:
+    if os.fork() == 0: #alternatively can call child in a separate thread.
         os.close(pipein)
         child(pipeout)
     else:
@@ -34,7 +34,7 @@ def parent():
                 break
             else:
                 pipeline = pipefile.readline()[:-1] # reads a line without the terminating character, so the read is blocked...requires pipe to supply termination character.
-                print("Message from child is: %s" % pipeline)
+                print("Message from child is: %s" % pipeline) #no need to decode...
 
 thethread.start()
 
