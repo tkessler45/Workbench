@@ -29,7 +29,6 @@ packed.load('filename') object structure:
 
 WaveRecord object structure:
 
-    .version: ???,
     .wave: {
         version: val, -- wavemetrics wave format version?
         wave: {
@@ -106,14 +105,118 @@ EXAMPLES:
 
     imem1 = a[1]['root'][b'imem1'].wave['wave']['wData']
 
+    plot(numpy.frombuffer(a[1]['root'][b'imem1'].data, float64, 1001))
+
 1. Create new WaveRecord class
 """
 
 import igor
 from igor import record
+from igor import packed
+import scipy
 
-a=record.WaveRecord()
+def folders(start,arr,temp,level=0):
+    """
+    Print nested dictionary names...
+    :param start: first dict
+    :param level: formatting indentation
+    :return:
 
+    TODO: create temp path array
+          join path with sep (:) and append to array
+    """
+    sep=":"
+    for key in start.keys():
+        if type(start.get(key))==dict:
+            try:
+                key.decode()
+            except:
+                #print(" "*4*level+key)
+                temp.append(key)
+                arr.append(sep.join(temp))
+            else:
+                #print(" "*4*level+key.decode())
+                temp.append(key.decode())
+                arr.append(sep.join(temp))
+            #increase indentation
+            folders(start.get(key),arr,temp,level+1)
+            temp.pop(-1)
 
-class wave(igor.record.wave.WaveRecord):
-    def __init__(self):
+class pxp():
+    pstruct = dict()
+    def __init__(self,file):
+        #include checking...
+        self.pstruct=packed.load(file)
+
+    def folders(self):
+        #list folder tree starting at path...
+        folderlist = []
+        temp=[]
+        folders(self.pstruct[1],arr=folderlist,temp=temp)
+        return folderlist
+
+    def getwave(self,path):
+        """
+        Takes full path to wave, separated by ":" and returns tuple of wave infomration...
+        :param path: full path to wave, separated by ":"
+        :return: (data array, deltax, data units, dimension units)
+        """
+        patharr = path.split(":")
+        w = self.pstruct[1]['root']
+        for name in patharr[1:]:
+            w =  w[name.encode()]
+
+        return (w.wave['wave']['wData'], w.wave['wave']['wave_header']['sfA'][0], w.wave['wave']['wave_header']['dataUnits'][0], w.wave['wave']['wave_header']['dimUnits'][0][0], path)
+
+class wave():
+    def __init__(self, intuple):
+        self.data = intuple[0] #data
+        self.deltax = intuple[1] #deltax
+        self.dataunits = intuple[2] #dataunits
+        self.dimunits = intuple[3] #dimunits
+        self.name = intuple[4] #wave name
+        self.csrA=0
+        self.csrB=intuple[0].size
+
+    def mean(self):
+        return scipy.mean(self.data)
+    def sum(self):
+        return scipy.sum(self.data)
+    def var(self):
+        return sum([(point**2 - self.mean()**2) for point in self.data])/(self.npnts()-1)
+    def sdev(self):
+        return self.var() ** (1/2)
+    def sem(self):
+        return self.sdev()/((self.npnts())**(1/2))
+    def rms(self):
+        return (sum([point**2 for point in self.data])/self.npnts())**(1/2)
+    def adev(self):
+        pass
+    def skew(self):
+        pass
+    def kurt(self):
+        pass
+    def min(self):
+        return (int(scipy.where(self.data==self.data.min())[0]),self.data.min())
+    def max(self):
+        return (int(scipy.where(self.data==self.data.max())[0]),self.data.max())
+    def npnts(self):
+        return self.data.size
+    def length(self):
+        return self.npnts()*self.deltax
+
+    def wavestats(self):
+        print(self.name,"for %d to %d" % (self.csrA,self.csrB))
+        print('   mean:', self.mean())
+        print('    sum:', self.sum())
+        print('    max:', self.max())
+        print('    min:', self.min())
+        print('  npnts:', self.npnts())
+        print(' length:', self.length())
+        print('    var:', self.var())
+        print('   sdev:', self.sdev())
+        print('    sem:', self.sem())
+        print('    rms:', self.rms())
+        print('   skew:', self.skew())
+        print('   adev:', self.adev())
+        print('   kurt:', self.kurt())

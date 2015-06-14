@@ -1,14 +1,27 @@
 __author__ = 'tkessler'
 
-from igor import packed
+import igorclasses as ig
+from pylab import *
+import time
 
-a = packed.load('/Users/tkessler/igortest.pxp')
+a = ig.pxp('/Users/tkessler/igortest.pxp')
 
-rawwaves = a[0]
-datastructure = dict(a[1])
-rootstructure = datastructure['root']
-awave = rootstructure.get('imem31'.encode())
+w = a.getwave('root:imem4') #'root:Nest1:Nest2:test'
+#open('wavetext.txt','w').write(a.__str__())
+#print("the wave is type:",type(w))
+x = ig.wave(w)
+#x.wavestats()
 
-#a = igor.record.wave.WaveRecord
+#plot(x.data)
 
-print(awave.wave['version'])
+##time.sleep(5)
+
+# print(x.sum())
+# print(x.mean())
+# print(x.var())
+# print(x.sdev())
+# print(x.sem())
+# print(x.rms())
+
+print(a.folders())
+x.wavestats()
