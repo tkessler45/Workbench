@@ -1,6 +1,7 @@
 __author__ = 'tkessler'
 
 import igorclasses as ig
+import pprint
 from pylab import *
 import time
 
@@ -23,5 +24,9 @@ x = ig.wave(w)
 # print(x.sem())
 # print(x.rms())
 
-print(a.folders())
-x.wavestats()
+ig.checktype('var',['dict'])
+
+pprint.pprint(a.folders())
+
+pprint.pprint(a.folderinfo("root:globals")[:2])
+#x.wavestats()

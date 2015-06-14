@@ -110,8 +110,6 @@ EXAMPLES:
 1. Create new WaveRecord class
 """
 
-import igor
-from igor import record
 from igor import packed
 import scipy
 
@@ -121,9 +119,6 @@ def folders(start,arr,temp,level=0):
     :param start: first dict
     :param level: formatting indentation
     :return:
-
-    TODO: create temp path array
-          join path with sep (:) and append to array
     """
     sep=":"
     for key in start.keys():
@@ -142,6 +137,10 @@ def folders(start,arr,temp,level=0):
             folders(start.get(key),arr,temp,level+1)
             temp.pop(-1)
 
+def checktype(item,typelist):
+    assert type(typelist)==list
+    print(item)
+
 class pxp():
     pstruct = dict()
     def __init__(self,file):
@@ -153,7 +152,37 @@ class pxp():
         folderlist = []
         temp=[]
         folders(self.pstruct[1],arr=folderlist,temp=temp)
+        folderlist.sort() #ensure consistency...
         return folderlist
+
+    def folderinfo(self, path, types=("all")):
+        """
+        accept folder path and return tuple:
+            - target path
+            - item count
+            - list of items
+        :param path:
+        :param type: vars, waves, folders, all
+        :return:
+        """
+        assert type(types)==tuple
+        loc = self.pstruct[1]
+        for p in path.split(":"):
+            try:
+                loc[p]
+            except:
+                loc=loc[p.encode()]
+            else:
+                loc=loc[p]
+        items = []
+        for key in loc.keys():
+            try:
+                key.decode()
+            except:
+                items.append(key)
+            else:
+                items.append(key.decode())
+        return (path,scipy.array(items).size,items)
 
     def getwave(self,path):
         """
