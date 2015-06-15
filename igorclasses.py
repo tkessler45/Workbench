@@ -110,8 +110,10 @@ EXAMPLES:
 1. Create new WaveRecord class
 """
 
+import igor
 from igor import packed
 import scipy
+import numpy
 
 def folders(start,arr,temp,level=0):
     """
@@ -137,15 +139,12 @@ def folders(start,arr,temp,level=0):
             folders(start.get(key),arr,temp,level+1)
             temp.pop(-1)
 
-def checktype(item,typelist):
-    assert type(typelist)==list
-    print(item)
-
 class pxp():
     pstruct = dict()
-    def __init__(self,file):
+    def __init__(self,pxpfile):
         #include checking...
-        self.pstruct=packed.load(file)
+        #TODO: load pxp or pickled pxp struct...
+        self.pstruct=packed.load(pxpfile)
 
     def folders(self):
         #list folder tree starting at path...
@@ -155,26 +154,24 @@ class pxp():
         folderlist.sort() #ensure consistency...
         return folderlist
 
-    def folderinfo(self, path, types=("all")):
+    def folderinfo(self, path):
         """
         accept folder path and return tuple:
             - target path
             - item count
             - list of items
         :param path:
-        :param type: vars, waves, folders, all
         :return:
         """
-        assert type(types)==tuple
         loc = self.pstruct[1]
-        for p in path.split(":"):
+        for p in path.split(":"): #drill down to the folder specified in the path...
             try:
                 loc[p]
             except:
                 loc=loc[p.encode()]
             else:
                 loc=loc[p]
-        items = []
+        items=[]
         for key in loc.keys():
             try:
                 key.decode()
@@ -182,43 +179,96 @@ class pxp():
                 items.append(key)
             else:
                 items.append(key.decode())
-        return (path,scipy.array(items).size,items)
 
-    def getwave(self,path):
+        waves=[]
+        variables=[]
+        strings=[]
+        folders=[]
+        for item in items:
+            try:
+                loc[item]
+            except:
+                if type(loc[item.encode()])==igor.record.wave.WaveRecord:
+                    waves.append(item)
+                if type(loc[item.encode()])==int or type(loc[item.encode()])==float or type(loc[item.encode()])==numpy.float64:
+                    variables.append(item)
+                if type(loc[item.encode()])==str:
+                    strings.append(item)
+                if type(loc[item.encode()])==dict:
+                    folders.append(item)
+            else:
+                if type(loc[item])==igor.record.wave.WaveRecord:
+                    waves.append(item)
+                if type(loc[item])==int or type(loc[item])==float:
+                    variables.append(item)
+                if type(loc[item])==str:
+                    strings.append(item)
+                if type(loc[item])==dict:
+                    folders.append(item)
+
+        # waves = [item for item in items if type(loc[item.encode()])==igor.record.wave.WaveRecord]
+        # variables = [item for item in items if type(loc[item.encode()])==int or type(item)==float]
+        # strings = [item for item in items if type(loc[item.encode()])==str]
+        # folders = [item for item in items if type(loc[item.encode()])==dict]
+
+        return dict(fullpath=path,waves=(scipy.size(waves), waves),variables=(scipy.size(variables),variables),strings=(scipy.size(strings),strings),folders=(scipy.size(folders),folders))
+        #return (path,waves,variables,strings,folders)
+
+    def getwave(self,path, wavenm):
         """
-        Takes full path to wave, separated by ":" and returns tuple of wave infomration...
+        Takes full path to wave, separated by ":" and returns tuple of wave information...
         :param path: full path to wave, separated by ":"
-        :return: (data array, deltax, data units, dimension units)
+        :return: (data array, deltax, data units, dimension units, full path)
         """
         patharr = path.split(":")
+        patharr.append(wavenm)
         w = self.pstruct[1]['root']
         for name in patharr[1:]:
-            w =  w[name.encode()]
+            w = w[name.encode()]
 
-        return (w.wave['wave']['wData'], w.wave['wave']['wave_header']['sfA'][0], w.wave['wave']['wave_header']['dataUnits'][0], w.wave['wave']['wave_header']['dimUnits'][0][0], path)
+        return wave(dict(data=w.wave['wave']['wData'], deltax=w.wave['wave']['wave_header']['sfA'][0], dataunits=w.wave['wave']['wave_header']['dataUnits'][0], dimunits=w.wave['wave']['wave_header']['dimUnits'][0][0], fullpath=path+":"+wavenm))
+        #return dict(data=w.wave['wave']['wData'], deltax=w.wave['wave']['wave_header']['sfA'][0], dataunits=w.wave['wave']['wave_header']['dataUnits'][0], dimunits=w.wave['wave']['wave_header']['dimUnits'][0][0], fullpath=path+":"+wavenm)
 
 class wave():
-    def __init__(self, intuple):
-        self.data = intuple[0] #data
-        self.deltax = intuple[1] #deltax
-        self.dataunits = intuple[2] #dataunits
-        self.dimunits = intuple[3] #dimunits
-        self.name = intuple[4] #wave name
+    def __init__(self, indict):
+        self.data = indict['data'] #data
+        self.deltax = indict['deltax'] #deltax
+        self.dataunits = indict['dataunits'] #dataunits
+        self.dimunits = indict['dimunits'] #dimunits
+        self.name = indict['fullpath'] #fullpath
         self.csrA=0
-        self.csrB=intuple[0].size
+        self.csrB=self.data.size
 
+    def setcursors(self,A=0,B=0,dim="p"):
+        if B<=0 or B>self.data.size or B<=A:
+            self.csrA=0
+            self.csrB=self.data.size
+        elif dim=='p':
+            self.csrA=int(round(A))
+            self.csrB=int(round(B))
+        elif dim=='x':
+            self.csrA=int(round(A/self.deltax))
+            self.csrB=int(round(B/self.deltax))
+
+    def x(self):
+        return [pt*self.deltax for pt in range(self.csrA,self.csrB)]
+    def y(self):
+        return self.data[self.csrA:self.csrB]
+
+    def copy(self):
+        return self.data[self.csrA:self.csrB].copy()
     def mean(self):
-        return scipy.mean(self.data)
+        return scipy.mean(self.data[self.csrA:self.csrB])
     def sum(self):
-        return scipy.sum(self.data)
+        return scipy.sum(self.data[self.csrA:self.csrB])
     def var(self):
-        return sum([(point**2 - self.mean()**2) for point in self.data])/(self.npnts()-1)
+        return sum([(point**2 - self.mean()**2) for point in self.data[self.csrA:self.csrB]])/(self.npnts()-1)
     def sdev(self):
         return self.var() ** (1/2)
     def sem(self):
-        return self.sdev()/((self.npnts())**(1/2))
+        return self.sdev()/((self.npnts()) ** (1/2))
     def rms(self):
-        return (sum([point**2 for point in self.data])/self.npnts())**(1/2)
+        return (sum([point**2 for point in self.data[self.csrA:self.csrB]])/self.npnts()) ** (1/2)
     def adev(self):
         pass
     def skew(self):
@@ -226,26 +276,29 @@ class wave():
     def kurt(self):
         pass
     def min(self):
-        return (int(scipy.where(self.data==self.data.min())[0]),self.data.min())
+        return (int(scipy.where(self.data[self.csrA:self.csrB]==self.data[self.csrA:self.csrB].min())[0]),self.data[self.csrA:self.csrB].min())
     def max(self):
-        return (int(scipy.where(self.data==self.data.max())[0]),self.data.max())
+        return (int(scipy.where(self.data[self.csrA:self.csrB]==self.data[self.csrA:self.csrB].max())[0]),self.data[self.csrA:self.csrB].max())
     def npnts(self):
-        return self.data.size
+        return self.data[self.csrA:self.csrB].size
     def length(self):
         return self.npnts()*self.deltax
 
     def wavestats(self):
-        print(self.name,"for %d to %d" % (self.csrA,self.csrB))
-        print('   mean:', self.mean())
-        print('    sum:', self.sum())
-        print('    max:', self.max())
-        print('    min:', self.min())
-        print('  npnts:', self.npnts())
-        print(' length:', self.length())
-        print('    var:', self.var())
-        print('   sdev:', self.sdev())
-        print('    sem:', self.sem())
-        print('    rms:', self.rms())
-        print('   skew:', self.skew())
-        print('   adev:', self.adev())
-        print('   kurt:', self.kurt())
+        print(self.name,"for points %d to %d" % (self.csrA,self.csrB))
+        if self.data.dtype==numpy.int64 or self.data.dtype==numpy.float64:
+            print('    mean:', self.mean())
+            print('     sum:', self.sum())
+            print('     max:', self.max())
+            print('     min:', self.min())
+            print('  length:', self.length())
+            print(' x-units:', self.dimunits.decode())
+            print('     var:', self.var())
+            print('    sdev:', self.sdev())
+            print('     sem:', self.sem())
+            print('     rms:', self.rms())
+            print('    skew:', self.skew())
+            print('    adev:', self.adev())
+            print('    kurt:', self.kurt())
+
+        print('   npnts:', self.npnts())
