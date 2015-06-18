@@ -139,7 +139,7 @@ def folders(start,arr,temp,level=0):
             folders(start.get(key),arr,temp,level+1)
             temp.pop(-1)
 
-class pxp():
+class pxp(object):
     pstruct = dict()
     def __init__(self,pxpfile):
         #include checking...
